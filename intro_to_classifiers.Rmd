@@ -1,0 +1,168 @@
+---
+title: "Classifiers"
+subtitle: "logistic regression and knn"
+author: "Neeraj and Sahil"
+date: "7/1/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(nutshell)
+library(ggplot2)
+library(caTools)
+library(e1071)
+
+
+```
+
+# An intro to the data & problem
+
+We have a dataset of word frequencies in a sample of emails. The emails are marked as either spam or not. We want to identify frequently used words to help us automatically classify emails as either spam or not.
+
+```{r}
+data('spambase')
+
+head(spambase)
+
+#str(spambase)
+```
+
+
+```{r}
+
+#subset to training and testing dataset
+```
+
+
+## run linear regression
+
+```{r}
+spambase_num = spambase
+spambase_num$is_spam = as.numeric(as.character(spambase$is_spam))
+
+
+fit_lm = lm(formula = is_spam~., data = spambase_num)
+
+
+```
+
+## compare response and prediction
+
+
+```{r}
+
+plot(spambase_num$is_spam, fit_lm$fitted.values, 
+     xlab = "truth", ylab = "prediction (linear regression)", 
+     main = "Is it really SPAM?")
+
+```
+
+
+```{r}
+plot(density(fit_lm$fitted.values), 
+     main = "Distribution of predicted values\nusing linear regression")
+```
+
+Use a cuttoff of 0.5 and see
+
+```{r}
+table(fit_lm$fitted.values > 0.5, spambase_num$is_spam)
+```
+
+```{r}
+predict <- predict(fit_lm, type = 'response')
+
+library(ROCR)
+ROCRpred <- prediction(predict, spambase$is_spam)
+ROCRperf <- performance(ROCRpred, 'tpr','fpr')
+plot(ROCRperf, colorize = TRUE, text.adj = c(-0.2,1.7))
+```
+
+
+Not to bad, right? Is this serviceable? Normally, when you are talking about a classification problem, you'll use logistict regression. But why? And what is logistic regression?
+
+The simple form of logistic regression model is
+
+`g(E(y)) = α + βx1 + γx2`
+
+You can think of logistic regression as like linear regression, except as our dependent variable, we're using the log of the odds of the class being one or the other (i.e. 0 or 1). By fitting the data to a _logit_ function, we can be sure to see only predictions between zero and one. You may recall in the linear regression example, we saw some predictions below zero (!).
+
+```{r}
+# logistic regression
+
+fit <- glm(is_spam ~ ., family='binomial', data=spambase[, !(names(spambase) %in% c("char_freq_left_paren","char_freq_left_bracket"))])
+
+fit <- glm(is_spam ~ ., family='binomial', data = spambase)
+
+plot(spambase$is_spam, fit$fitted.values,
+     xlab = "truth", ylab = "prediction (logistic regression)", 
+     main = "Is it really SPAM?")
+
+summary(fit)
+```
+
+# density of probabilities
+```{r}
+plot(density(fit$fitted.values))
+```
+
+# confusion matrix
+```{r}
+table(fit$fitted.values > 0.5, spambase$is_spam)
+```
+
+
+```{r}
+table(fit$fitted.values > 0.5, spambase$is_spam)
+```
+
+
+
+
+# ROC
+
+
+```{r}
+predict <- predict(fit, type = 'response')
+library(ROCR)
+ROCRpred <- prediction(predict, spambase$is_spam)
+ROCRperf <- performance(ROCRpred, 'tpr','fpr')
+plot(ROCRperf, colorize = TRUE, text.adj = c(-0.2,1.7))
+```
+
+
+# pretty ROC
+```{r}
+roc_perf_df <- data.frame(x=ROCRperf@x.values[[1]],
+                          y=ROCRperf@y.values[[1]],
+                          a=ROCRperf@alpha.values[[1]])
+
+ggplot(roc_perf_df, aes(x=x, y=y, color=a)) +
+  geom_line() +
+  scale_color_gradientn(colors=c("#FFED28", "#CC1120", "#5BB5CC"))
+```
+
+
+
+```{r}
+library(randomForest)
+set.seed(123)
+
+
+rf.fit = randomForest(is_spam ~ .,
+                      ntree = 100,
+                      data = spambase)
+
+plot(rf.fit)
+```
+
+
+```{r}
+print(rf.fit)
+```
+
+```{r}
+varImpPlot(rf.fit,
+          sort=T,
+          n.var=10)
+  ```
